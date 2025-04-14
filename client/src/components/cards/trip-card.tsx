@@ -40,7 +40,7 @@ export default function TripCard({ trip }: TripCardProps) {
   
   const expenseCount = tripExpenses?.length || 0;
   const totalSpent = tripExpenses
-    ? tripExpenses.reduce((sum: number, expense: any) => sum + expense.cost, 0).toFixed(2)
+    ? tripExpenses.reduce((sum: number, expense: any) => sum + parseFloat(expense.cost || '0'), 0).toFixed(2)
     : "0.00";
   
   // Remove the handleExportTrip function entirely
