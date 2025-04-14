@@ -13,7 +13,41 @@ const requiredPaths = [
   
   // Config files
   'vercel.json',
+  
+  // Essential client files
+  'client/index.html',
+  'client/root/index.html', // New path for Vercel builds
 ];
+
+// Check if a path is a directory when it should be a file, or vice versa
+function checkPathType(pathToCheck, expectedType) {
+  try {
+    const fullPath = path.resolve(process.cwd(), pathToCheck);
+    if (!fs.existsSync(fullPath)) {
+      console.log(`❌ ${pathToCheck} does not exist`);
+      return false;
+    }
+    
+    const stats = fs.statSync(fullPath);
+    const isDirectory = stats.isDirectory();
+    
+    if (expectedType === 'file' && isDirectory) {
+      console.log(`❌ ${pathToCheck} is a directory but should be a file!`);
+      return false;
+    }
+    
+    if (expectedType === 'directory' && !isDirectory) {
+      console.log(`❌ ${pathToCheck} is a file but should be a directory!`);
+      return false;
+    }
+    
+    console.log(`✅ ${pathToCheck} is correctly a ${expectedType}`);
+    return true;
+  } catch (error) {
+    console.log(`❌ Error checking ${pathToCheck}: ${error.message}`);
+    return false;
+  }
+}
 
 // Files to check for content
 const contentChecks = [
@@ -98,11 +132,32 @@ listDirRecursive('./dist', '  ');
 console.log('  📁 api');
 listDirRecursive('./api', '    ');
 
+// Additional type checks for critical paths
+console.log('\n🔍 Verifying file and directory types...');
+const criticalPathTypes = [
+  { path: 'client/index.html', type: 'file' },
+  { path: 'client/root/index.html', type: 'file' },
+  { path: 'client', type: 'directory' },
+  { path: 'client/root', type: 'directory' },
+  { path: 'dist/public', type: 'directory' },
+];
+
+let allTypesCorrect = true;
+for (const { path: checkPath, type } of criticalPathTypes) {
+  // Only check if the path exists
+  if (fs.existsSync(path.resolve(process.cwd(), checkPath))) {
+    const typeCorrect = checkPathType(checkPath, type);
+    if (!typeCorrect) {
+      allTypesCorrect = false;
+    }
+  }
+}
+
 // Final result
-if (allPathsExist && allContentValid) {
+if (allPathsExist && allContentValid && allTypesCorrect) {
   console.log('\n✅ Build verification passed! Ready for deployment.');
   process.exit(0);
 } else {
   console.log('\n❌ Build verification failed! Please check the issues above.');
-  process.exit(1); 
+  process.exit(1);
 }

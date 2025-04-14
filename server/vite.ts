@@ -47,15 +47,31 @@ export async function setupVite(app: Express, server: Server) {
     const url = req.originalUrl;
 
     try {
-      const clientTemplate = path.resolve(
-        __dirname,
-        "..",
-        "client",
-        "index.html",
-      );
+      // Determine correct client template path based on environment
+      let clientTemplate;
+      if (process.env.VERCEL === '1') {
+        clientTemplate = path.resolve(process.cwd(), "client", "root", "index.html");
+        log(`Vercel: Using template path: ${clientTemplate}`, "vite");
+      } else {
+        clientTemplate = path.resolve(__dirname, "..", "client", "index.html");
+        log(`Dev: Using template path: ${clientTemplate}`, "vite");
+      }
 
-      // always reload the index.html file from disk incase it changes
+      // Check if template file exists and log file stats
+      try {
+        const stats = fs.statSync(clientTemplate);
+        log(`Template file stats: ${JSON.stringify(stats)}`, "vite");
+        if (!stats.isFile()) {
+          throw new Error(`Template path exists but is not a file: ${clientTemplate}`);
+        }
+      } catch (statErr) {
+        log(`Error checking template file: ${statErr}`, "vite");
+      }
+
+      // Read template from disk
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
+      log(`Successfully read template file with length: ${template.length}`, "vite");
+      
       template = template.replace(
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`,

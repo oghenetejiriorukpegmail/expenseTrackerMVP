@@ -22,7 +22,7 @@
   },
   "functions": {
     "api/index.js": {
-      "includeFiles": "server/**,migrations/**,shared/**"
+      "includeFiles": "server/**,migrations/**,shared/**,client/**"
     }
   }
 }
