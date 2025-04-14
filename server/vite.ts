@@ -70,31 +70,41 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(__dirname, "public");
-
-  if (!fs.existsSync(distPath)) {
+  // Improve path resolution for different environments
+  // In production, use the absolute path from project root
+  const projectRoot = path.resolve(__dirname, "..");
+  const distPath = path.join(projectRoot, "dist", "public");
+  
+  log(`Serving static files from: ${distPath}`, "static");
+  
+  // Only check if directory exists in non-Vercel environments
+  // In Vercel, the file structure might be different during the build phase
+  if (!process.env.VERCEL && !fs.existsSync(distPath)) {
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`,
     );
   }
 
-  // Serve static files from the 'public' directory within 'dist'
+  // Serve static files from the 'dist/public' directory
   app.use(express.static(distPath));
 
   // Fallback for SPA: Send index.html for GET requests that accept HTML and are not API routes
   app.get('*', (req, res, next) => {
     // Check if it's a GET request accepting HTML and not an API route
     if (req.method === 'GET' && req.accepts('html') && !req.path.startsWith('/api/')) {
-      res.sendFile(path.resolve(distPath, "index.html"), (err) => {
+      const indexPath = path.join(distPath, "index.html");
+      log(`Serving SPA fallback: ${indexPath} for path: ${req.path}`, "static");
+      
+      res.sendFile(indexPath, (err) => {
         // If sendFile encounters an error (e.g., file not found), pass it to the error handler
         if (err) {
+          log(`Error serving index.html: ${err.message}`, "static");
           next(err);
         }
       });
     } else {
       // For non-GET requests, requests not accepting HTML, or API routes,
-      // pass control to the next middleware (which will likely result in a 404
-      // if no other route handles it)
+      // pass control to the next middleware
       next();
     }
   });

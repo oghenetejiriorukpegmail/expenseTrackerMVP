@@ -6,6 +6,13 @@ import { storage as storagePromise } from "./storage"; // Import the promise
 import { setupAuth } from "./auth"; // Import setupAuth
 import { initializeEnvFromConfig } from "./config"; // Import config initialization
 
+// For Vercel serverless deployment
+export const config = {
+  api: {
+    bodyParser: false, // We're using Express's body parser
+  },
+};
+
 const app = express();
 
 // Add helmet middleware for security headers
@@ -60,44 +67,67 @@ app.use((req, res, next) => {
 // Initialize environment variables from config file
 initializeEnvFromConfig();
 
-(async () => {
-  // Await the storage initialization
-  const storage = await storagePromise;
-  console.log("Storage initialized successfully.");
+// Create a Promise that will resolve to our fully configured Express app
+const appPromise = (async () => {
+  try {
+    // Await the storage initialization
+    const storage = await storagePromise;
+    console.log("Storage initialized successfully.");
 
-  // Setup auth with the initialized storage and session store
-  // Ensure setupAuth is called BEFORE registerRoutes if routes depend on auth/session
-  setupAuth(app, storage.sessionStore, storage); // Pass storage instance
-  console.log("Auth setup complete.");
+    // Setup auth with the initialized storage and session store
+    setupAuth(app, storage.sessionStore, storage);
+    console.log("Auth setup complete.");
 
-  // Register routes, passing the initialized storage
-  const server = await registerRoutes(app, storage); // Pass storage instance
-  console.log("Routes registered.");
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    // Register routes, passing the initialized storage
+    const server = await registerRoutes(app, storage);
+    console.log("Routes registered.");
+    
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    console.error("Server error:", err);
-  });
+      res.status(status).json({ message });
+      console.error("Server error:", err);
+    });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+    // Setup Vite in development or static file serving in production
+    if (process.env.NODE_ENV !== "production") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
+
+    // Start server for local development but not in Vercel environment
+    const port = process.env.PORT || 5000;
+    const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1';
+    
+    if (process.env.VERCEL !== '1') {
+      server.listen({
+        port,
+        host,
+      }, () => {
+        log(`serving on ${host}:${port}`);
+      });
+    } else {
+      log('Running in Vercel serverless environment - not starting HTTP server');
+    }
+    
+    return app;
+  } catch (error) {
+    console.error("Error during app initialization:", error);
+    throw error;
   }
-
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "127.0.0.1",
-  }, () => {
-    log(`serving on port ${port}`);
-  });
 })();
+
+// For Vercel serverless function handler
+export default async (req: Request, res: Response) => {
+  try {
+    // Wait for app to be fully initialized
+    const initializedApp = await appPromise;
+    // Then let Express handle the request
+    return initializedApp(req, res);
+  } catch (error) {
+    console.error("Error handling serverless request:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};

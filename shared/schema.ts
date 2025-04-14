@@ -1,11 +1,12 @@
-// Import SQLite core functions
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+// Import PostgreSQL core functions
+import { pgTable, serial, text, integer, decimal, timestamp } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm"; // Import sql helper for defaultNow()
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Define users table for SQLite
-export const users = sqliteTable("users", {
-  id: integer("id").primaryKey({ autoIncrement: true }), // Use integer primary key
+// Define users table for PostgreSQL
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(), // Use serial for auto-incrementing primary key
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   firstName: text("first_name").notNull().default(''), // Existing firstName
@@ -15,33 +16,33 @@ export const users = sqliteTable("users", {
   bio: text("bio"), // Existing optional bio
   // Store timestamps as integers (Unix epoch milliseconds) or ISO strings (text)
   // Using integer mode for simplicity with Date objects
-  createdAt: integer("created_at", { mode: 'timestamp_ms' }).default(new Date()),
+  createdAt: timestamp("created_at", { mode: 'date', withTimezone: false }).defaultNow(),
 });
 
-// Define trips table for SQLite
-export const trips = sqliteTable("trips", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+// Define trips table for PostgreSQL
+export const trips = pgTable("trips", {
+  id: serial("id").primaryKey(),
   // Ensure foreign key references integer type
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }), // Add onDelete cascade if desired
   name: text("name").notNull(),
   description: text("description"),
-  createdAt: integer("created_at", { mode: 'timestamp_ms' }).default(new Date()),
+  createdAt: timestamp("created_at", { mode: 'date', withTimezone: false }).defaultNow(),
 });
 
-// Define expenses table for SQLite
-export const expenses = sqliteTable("expenses", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id),
+// Define expenses table for PostgreSQL
+export const expenses = pgTable("expenses", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }), // Add onDelete cascade if desired
   type: text("type").notNull(),
   date: text("date").notNull(), // Keep date as text (YYYY-MM-DD) for simplicity
   vendor: text("vendor").notNull(),
   location: text("location").notNull(),
-  cost: real("cost").notNull(), // Use real for floating-point numbers in SQLite
+  cost: decimal("cost", { precision: 10, scale: 2 }).notNull(), // Use decimal for currency
   comments: text("comments"),
   tripName: text("trip_name").notNull(),
   receiptPath: text("receipt_path"),
-  createdAt: integer("created_at", { mode: 'timestamp_ms' }).default(new Date()),
-  updatedAt: integer("updated_at", { mode: 'timestamp_ms' }).default(new Date()),
+  createdAt: timestamp("created_at", { mode: 'date', withTimezone: false }).defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: 'date', withTimezone: false }).defaultNow(),
 });
 
 // Insert schemas

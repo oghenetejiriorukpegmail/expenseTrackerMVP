@@ -1,5 +1,6 @@
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres'; // Use node-postgres adapter
-import { Pool } from 'pg'; // Use pg Pool
+import pg from 'pg'; // Import default export
+const { Pool } = pg; // Destructure Pool from the default export
 import { migrate } from 'drizzle-orm/node-postgres/migrator'; // Use node-postgres migrator
 import * as schema from '@shared/schema';
 import type { User, InsertUser, Trip, InsertTrip, Expense, InsertExpense } from "@shared/schema";
