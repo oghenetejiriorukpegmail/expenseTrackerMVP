@@ -81,15 +81,21 @@ export function serveStatic(app: Express) {
   // Serve static files from the 'public' directory within 'dist'
   app.use(express.static(distPath));
 
-  // Fallback for SPA: Send index.html for any request that doesn't match a static file
-  // and isn't an API route (assuming API routes are handled before this middleware)
+  // Fallback for SPA: Send index.html for GET requests that accept HTML and are not API routes
   app.get('*', (req, res, next) => {
-    // Check if the request looks like it's for a file (contains a dot)
-    // or if it's an API route (you might need a more specific check if /api isn't used)
-    if (req.path.includes('.') || req.path.startsWith('/api/')) {
-      return next(); // Let it potentially 404 or be handled by other routes
+    // Check if it's a GET request accepting HTML and not an API route
+    if (req.method === 'GET' && req.accepts('html') && !req.path.startsWith('/api/')) {
+      res.sendFile(path.resolve(distPath, "index.html"), (err) => {
+        // If sendFile encounters an error (e.g., file not found), pass it to the error handler
+        if (err) {
+          next(err);
+        }
+      });
+    } else {
+      // For non-GET requests, requests not accepting HTML, or API routes,
+      // pass control to the next middleware (which will likely result in a 404
+      // if no other route handles it)
+      next();
     }
-    // Otherwise, serve index.html
-    res.sendFile(path.resolve(distPath, "index.html"));
   });
 }
