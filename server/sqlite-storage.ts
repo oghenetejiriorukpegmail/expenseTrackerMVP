@@ -1,53 +1,64 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres'; // Use node-postgres adapter
+import { Pool } from 'pg'; // Use pg Pool
+import { migrate } from 'drizzle-orm/node-postgres/migrator'; // Use node-postgres migrator
 import * as schema from '@shared/schema';
 import type { User, InsertUser, Trip, InsertTrip, Expense, InsertExpense } from "@shared/schema";
 import { eq, and, desc } from 'drizzle-orm'; // Import desc for ordering
 import session from "express-session";
-// Import types if needed, but actual import is dynamic
-// import type BetterSqlite3StoreType from 'better-sqlite3-session-store';
+import connectPgSimple from 'connect-pg-simple'; // Import pg session store
 
 import { IStorage } from './storage'; // Import the interface
+import * as dotenv from "dotenv";
 
-export class SqliteStorage implements IStorage {
-  private db; // Drizzle instance
-  private sqlite: Database.Database; // Raw better-sqlite3 instance
+dotenv.config({ path: ".env.local" }); // Load .env.local first if it exists
+
+export class PostgresStorage implements IStorage { // Renamed class
+  private db: NodePgDatabase<typeof schema>; // Drizzle instance with correct type
+  private pool: Pool; // Raw pg Pool instance
   public sessionStore!: session.Store; // Use definite assignment assertion
 
   // Private constructor to enforce initialization via async method
-  private constructor(dbPath: string = 'sqlite.db') {
-    this.sqlite = new Database(dbPath); // Store the raw connection
-    // Enable WAL mode for better concurrency
-    this.sqlite.pragma('journal_mode = WAL');
-    this.db = drizzle(this.sqlite, { schema, logger: false }); // Pass raw connection to Drizzle
+  private constructor() {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL environment variable is not set.");
+    }
+    // Create a pg Pool
+    this.pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      // Add SSL config if required by Supabase/Vercel (often needed for production)
+      // ssl: {
+      //   rejectUnauthorized: false // Adjust as needed for your provider/environment
+      // }
+    });
+    this.db = drizzle(this.pool, { schema, logger: false }); // Pass pool to Drizzle
   }
 
   // Public async initialization method
-  public static async initialize(dbPath: string = 'sqlite.db'): Promise<SqliteStorage> {
-    const instance = new SqliteStorage(dbPath);
+  public static async initialize(): Promise<PostgresStorage> {
+    const instance = new PostgresStorage(); // Call constructor without path
 
-    // Run migrations using the Drizzle instance
+    // Run migrations using the Drizzle instance (now async)
     console.log("Running database migrations...");
     try {
-        migrate(instance.db, { migrationsFolder: './migrations' });
+        // Use the async migrate function for node-postgres
+        await migrate(instance.db, { migrationsFolder: './migrations' });
         console.log("Migrations complete.");
     } catch (error) {
         console.error("Error running migrations:", error);
-        // Decide if you want to throw or handle this error
+        // Decide if you want to throw or handle this error, especially in production
+        throw error; // Rethrowing might be safer during startup
     }
 
-    // Dynamically import and initialize session store
-    const storeModule = await import('better-sqlite3-session-store');
-    const SqliteStore = storeModule.default(session); // Or storeModule(session) depending on export
-    instance.sessionStore = new SqliteStore({
-        client: instance.sqlite, // Pass the raw better-sqlite3 connection instance
-        expired: {
-            clear: true,
-            intervalMs: 900000 // Check for expired sessions every 15 minutes
-        }
+    // Initialize Postgres session store
+    const PgStore = connectPgSimple(session);
+    instance.sessionStore = new PgStore({
+        pool: instance.pool, // Pass the pg Pool instance
+        createTableIfMissing: true, // Automatically create the session table
+        // Customize table name or schema if needed
+        // tableName: 'user_sessions',
+        // schemaName: 'public'
     });
-    console.log("SQLite session store initialized.");
+    console.log("Postgres session store initialized.");
     return instance;
   }
 
@@ -111,17 +122,7 @@ export class SqliteStorage implements IStorage {
     }
   }
 
-  async updateUserPassword(userId: number, newPasswordHash: string): Promise<void> {
-    const result = await this.db.update(schema.users)
-      .set({ password: newPasswordHash })
-      .where(eq(schema.users.id, userId))
-      .returning({ id: schema.users.id }); // Return something to check if update happened
-
-    if (result.length === 0) {
-      throw new Error(`User with ID ${userId} not found for password update.`);
-    }
-  }
-
+  // Removed duplicate updateUserPassword method
   // --- Trip methods ---
   async getTrip(id: number): Promise<Trip | undefined> {
     const result = await this.db.select().from(schema.trips).where(eq(schema.trips.id, id)).limit(1);

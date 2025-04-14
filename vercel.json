@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["dist/**", "node_modules/**"]
+      }
+    },
+    {
+      "src": "dist/public/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/assets/(.*)",
+      "dest": "/dist/public/assets/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/index.js"
+    }
+  ]
+}
