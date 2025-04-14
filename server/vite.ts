@@ -26,7 +26,6 @@ export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
-    allowedHosts: true,
   };
 
   const vite = await createViteServer({
@@ -79,10 +78,18 @@ export function serveStatic(app: Express) {
     );
   }
 
+  // Serve static files from the 'public' directory within 'dist'
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
+  // Fallback for SPA: Send index.html for any request that doesn't match a static file
+  // and isn't an API route (assuming API routes are handled before this middleware)
+  app.get('*', (req, res, next) => {
+    // Check if the request looks like it's for a file (contains a dot)
+    // or if it's an API route (you might need a more specific check if /api isn't used)
+    if (req.path.includes('.') || req.path.startsWith('/api/')) {
+      return next(); // Let it potentially 404 or be handled by other routes
+    }
+    // Otherwise, serve index.html
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }
