@@ -23,13 +23,12 @@ export class PostgresStorage implements IStorage { // Renamed class
     if (!process.env.DATABASE_URL) {
       throw new Error("DATABASE_URL environment variable is not set.");
     }
-    // Create a pg Pool
+    // Create a pg Pool with proper SSL configuration for Vercel
     this.pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      // Add SSL config if required by Supabase/Vercel (often needed for production)
-      // ssl: {
-      //   rejectUnauthorized: false // Adjust as needed for your provider/environment
-      // }
+      ssl: process.env.NODE_ENV === 'production' ? {
+        rejectUnauthorized: false // Required for most hosted PostgreSQL providers
+      } : undefined
     });
     this.db = drizzle(this.pool, { schema, logger: false }); // Pass pool to Drizzle
   }

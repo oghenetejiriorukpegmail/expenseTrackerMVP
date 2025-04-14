@@ -1,43 +1,28 @@
 {
   "version": 2,
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "outputDirectory": "dist/public",
   "framework": "vite",
-  "builds": [
-    {
-      "src": "dist/index.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["dist/**", "package.json"]
-      }
-    },
-    {
-      "src": "dist/public/**",
-      "use": "@vercel/static"
-    }
-  ],
+  "regions": ["iad1"],
   "routes": [
     {
-      "src": "/assets/(.*)",
-      "dest": "/dist/public/assets/$1"
-    },
-    {
       "src": "/api/(.*)",
-      "dest": "/dist/index.js"
+      "dest": "/api/index.js"
     },
     {
       "handle": "filesystem"
     },
     {
-      "src": "/(.*\\.[a-z0-9]+$)",
-      "dest": "/dist/public/$1"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/dist/public/index.html"
+      "dest": "/index.html"
     }
   ],
   "env": {
     "VERCEL": "1"
+  },
+  "functions": {
+    "api/index.js": {
+      "includeFiles": ["server/**", "migrations/**", "shared/**"]
+    }
   }
 }

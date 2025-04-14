@@ -94,6 +94,8 @@ const appPromise = (async () => {
     if (process.env.NODE_ENV !== "production") {
       await setupVite(app, server);
     } else {
+      // Log the environment to help with debugging
+      log(`Running in environment: NODE_ENV=${process.env.NODE_ENV}, VERCEL=${process.env.VERCEL}`);
       serveStatic(app);
     }
 
@@ -110,6 +112,7 @@ const appPromise = (async () => {
       });
     } else {
       log('Running in Vercel serverless environment - not starting HTTP server');
+      log('Static files will be served from the serverless function');
     }
     
     return app;
@@ -122,12 +125,17 @@ const appPromise = (async () => {
 // For Vercel serverless function handler
 export default async (req: Request, res: Response) => {
   try {
+    // Log incoming requests to help with debugging
+    console.log(`[serverless] Handling ${req.method} request to ${req.url}`);
+    
     // Wait for app to be fully initialized
     const initializedApp = await appPromise;
+    
     // Then let Express handle the request
     return initializedApp(req, res);
   } catch (error) {
     console.error("Error handling serverless request:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error", details: error instanceof Error ? error.message : String(error) });
   }
 };
