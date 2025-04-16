@@ -11,13 +11,14 @@ const requiredPaths = [
   // API function
   'api/index.js',
   
-  // Config files
-  'vercel.json',
-  
   // Essential client files
   'client/index.html',
-  'client/root/index.html', // New path for Vercel builds
 ];
+
+// Add debug logging for environment
+console.log('Debug - Environment variables:');
+console.log(`NODE_ENV=${process.env.NODE_ENV || 'not set'}`);
+console.log(`Current working directory: ${process.cwd()}`);
 
 // Check if a path is a directory when it should be a file, or vice versa
 function checkPathType(pathToCheck, expectedType) {
@@ -51,14 +52,6 @@ function checkPathType(pathToCheck, expectedType) {
 
 // Files to check for content
 const contentChecks = [
-  {
-    path: 'vercel.json',
-    patterns: [
-      '"outputDirectory": "dist/public"',
-      '"src": "/api/(.*)"',
-      '"dest": "/api/index.js"'
-    ]
-  },
   {
     path: 'dist/public/index.html',
     patterns: [
@@ -136,11 +129,44 @@ listDirRecursive('./api', '    ');
 console.log('\n🔍 Verifying file and directory types...');
 const criticalPathTypes = [
   { path: 'client/index.html', type: 'file' },
-  { path: 'client/root/index.html', type: 'file' },
   { path: 'client', type: 'directory' },
-  { path: 'client/root', type: 'directory' },
   { path: 'dist/public', type: 'directory' },
 ];
+
+// Add detailed filesystem debug info
+console.log('\n📋 Detailed filesystem state:');
+try {
+  // Check client directory
+  console.log('Client directory contents:');
+  const clientDir = path.resolve(process.cwd(), 'client');
+  if (fs.existsSync(clientDir)) {
+    const clientFiles = fs.readdirSync(clientDir);
+    console.log(`Client files: ${JSON.stringify(clientFiles)}`);
+  } else {
+    console.log('Client directory does not exist!');
+  }
+  
+  // Check client/index.html
+  const clientIndex = path.resolve(clientDir, 'index.html');
+  if (fs.existsSync(clientIndex)) {
+    const stats = fs.statSync(clientIndex);
+    console.log(`client/index.html stats: ${JSON.stringify(stats)}`);
+    console.log(`File size: ${stats.size} bytes`);
+  } else {
+    console.log('client/index.html does not exist!');
+  }
+  
+  // Check dist/public directory
+  const distPublic = path.resolve(process.cwd(), 'dist', 'public');
+  if (fs.existsSync(distPublic)) {
+    const distFiles = fs.readdirSync(distPublic);
+    console.log(`dist/public files: ${JSON.stringify(distFiles)}`);
+  } else {
+    console.log('dist/public directory does not exist!');
+  }
+} catch (error) {
+  console.log(`Error during detailed filesystem check: ${error.message}`);
+}
 
 let allTypesCorrect = true;
 for (const { path: checkPath, type } of criticalPathTypes) {

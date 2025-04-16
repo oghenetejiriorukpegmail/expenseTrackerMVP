@@ -18,11 +18,12 @@
     }
   ],
   "env": {
-    "VERCEL": "1"
+    "VERCEL": "1",
+    "NODE_ENV": "production"
   },
   "functions": {
     "api/index.js": {
-      "includeFiles": "server/**,migrations/**,shared/**,client/**"
+      "includeFiles": "server/**,migrations/**,shared/**"
     }
   }
 }

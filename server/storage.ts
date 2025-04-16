@@ -36,8 +36,8 @@ export interface IStorage {
 
 // MemStorage class removed as it's no longer used.
 
-// Import the new SQLite storage implementation
-import { PostgresStorage } from './sqlite-storage'; // Import the renamed class (keeping filename for now)
+// Import the PostgreSQL storage implementation
+import { PostgresStorage } from './postgres-storage'; // Import from the correctly named file
 
 // Initialize and export the storage instance (as a promise)
 const storagePromise = PostgresStorage.initialize(); // Call the async initializer for PostgresStorage

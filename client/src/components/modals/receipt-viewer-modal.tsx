@@ -1,14 +1,56 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useModalStore } from "@/lib/store";
-import { useState } from "react";
-import { X, ZoomIn, ZoomOut, Download } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, ZoomIn, ZoomOut, Download, Loader2 } from "lucide-react";
+import { getReceiptUrl, isLegacyReceiptPath } from "@/lib/receipt-service";
 
 export default function ReceiptViewerModal() {
-  const { receiptViewerOpen: open, closeReceiptViewer, currentReceiptUrl } = useModalStore();
+  const { receiptViewerOpen: open, closeReceiptViewer, currentReceiptUrl: initialUrl } = useModalStore();
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [currentReceiptUrl, setCurrentReceiptUrl] = useState<string | null>(null);
+
+  // Fetch the signed URL if needed
+  useEffect(() => {
+    async function fetchSignedUrl() {
+      if (!initialUrl) {
+        setCurrentReceiptUrl(null);
+        return;
+      }
+
+      // If it's a legacy path (starts with /uploads/), we need to extract the expense ID
+      if (isLegacyReceiptPath(initialUrl)) {
+        // For backward compatibility, use the initialUrl directly
+        setCurrentReceiptUrl(initialUrl);
+        return;
+      }
+
+      // If it's a numeric ID, fetch the signed URL
+      const expenseId = parseInt(initialUrl);
+      if (!isNaN(expenseId)) {
+        try {
+          setLoading(true);
+          setError(null);
+          const signedUrl = await getReceiptUrl(expenseId);
+          setCurrentReceiptUrl(signedUrl);
+        } catch (error) {
+          console.error("Error fetching receipt URL:", error);
+          setError("Failed to load receipt. Please try again later.");
+          setCurrentReceiptUrl(null);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        // If it's not a legacy path or a numeric ID, assume it's already a signed URL
+        setCurrentReceiptUrl(initialUrl);
+      }
+    }
+
+    fetchSignedUrl();
+  }, [initialUrl]);
   
   const handleZoomIn = () => {
     setZoomLevel(prev => Math.min(prev + 0.25, 3));
@@ -62,7 +104,12 @@ export default function ReceiptViewerModal() {
         </DialogHeader>
         
         <div className="flex-grow overflow-auto flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-md p-4">
-          {currentReceiptUrl ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+              <p className="text-sm">Loading receipt...</p>
+            </div>
+          ) : currentReceiptUrl ? (
             error ? (
               <div className="text-center text-red-500">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

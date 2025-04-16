@@ -14,6 +14,7 @@ import ReceiptUpload from "@/components/upload/receipt-upload";
 import { Loader2 } from "lucide-react";
 import { format } from 'date-fns';
 import type { Expense } from "@shared/schema"; // Import Expense type
+import { getReceiptUrl } from "@/lib/receipt-service"; // Import receipt service
 
 // Schema generation logic (copied from add-expense-modal, could be refactored)
 const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/(19|20)\d{2}$/;
@@ -91,8 +92,22 @@ export default function EditExpenseModal() {
         // For simplicity, we might just edit comments directly
         // description removed from reset
       });
-      // Set the current receipt URL for display/keeping track
-      setCurrentReceiptUrl(editingExpense.receiptPath ? `/uploads/${editingExpense.receiptPath}` : null);
+      
+      // Fetch the receipt URL if there is a receipt path
+      if (editingExpense.receiptPath) {
+        // Fetch the signed URL for the receipt
+        getReceiptUrl(editingExpense.id)
+          .then(url => {
+            setCurrentReceiptUrl(url);
+          })
+          .catch(error => {
+            console.error("Error fetching receipt URL:", error);
+            setCurrentReceiptUrl(null);
+          });
+      } else {
+        setCurrentReceiptUrl(null);
+      }
+      
       setReceiptFile(null); // Clear any previously selected new file
     } else if (!open) {
       form.reset(); // Clear form on close

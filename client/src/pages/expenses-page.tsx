@@ -368,7 +368,7 @@ export default function ExpensesPage() {
                               variant="ghost"
                               size="sm"
                               className="text-blue-500 hover:text-blue-700"
-                              onClick={() => openReceiptViewer(`/uploads/${expense.receiptPath}`)}
+                              onClick={() => openReceiptViewer(`${expense.id}`)}
                             >
                               <EyeIcon className="h-4 w-4" />
                             </Button>

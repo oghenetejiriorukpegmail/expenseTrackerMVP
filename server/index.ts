@@ -28,7 +28,23 @@ if (process.env.NODE_ENV !== 'production') {
     }
   }));
 } else {
-  app.use(helmet()); // Use default helmet settings in production
+  // Enhanced security for production
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "*.supabase.co"],
+        connectSrc: ["'self'", "*.supabase.co"],
+        fontSrc: ["'self'", "data:"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false, // May need to adjust based on your app's requirements
+  }));
 }
 
 app.use(express.json());
@@ -100,7 +116,8 @@ const appPromise = (async () => {
     }
 
     // Start server for local development but not in Vercel environment
-    const port = process.env.PORT || 5000;
+    // Use port 5001 in development to avoid conflicts with existing processes
+    const port = process.env.NODE_ENV !== 'production' ? 5001 : (process.env.PORT || 5000);
     const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1';
     
     if (process.env.VERCEL !== '1') {

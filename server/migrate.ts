@@ -1,35 +1,60 @@
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
 import path from 'path';
-import { fileURLToPath } from 'url'; // Import url module
+import { fileURLToPath } from 'url';
+import * as dotenv from "dotenv";
 
 console.log("Running database migrations...");
+
+// Load environment variables
+dotenv.config({ path: ".env.local" });
 
 // ESM equivalent for __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-try {
-  // Construct the path to the database file relative to the script location
-  // Assuming migrate.ts is in server/ and sqlite.db is in the root
-  const dbPath = path.join(__dirname, '..', 'sqlite.db'); // This should now work
-  console.log(`Database path: ${dbPath}`);
+// Wrap the async code in an async function
+async function runMigrations() {
+  try {
+    // Construct the path to the migrations folder
+    const migrationsFolder = path.join(__dirname, '..', 'migrations');
+    console.log(`Migrations folder: ${migrationsFolder}`);
 
-  const sqlite = new Database(dbPath);
-  const db = drizzle(sqlite);
+    // Use PostgreSQL for both development and production
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL environment variable is not set.");
+    }
 
-  // Construct the path to the migrations folder relative to the script location
-  const migrationsFolder = path.join(__dirname, '..', 'migrations'); // This should now work
-  console.log(`Migrations folder: ${migrationsFolder}`);
+    console.log("Connecting to PostgreSQL database...");
+    
+    // Import PostgreSQL modules
+    const { migrate } = await import('drizzle-orm/node-postgres/migrator');
+    const { drizzle } = await import('drizzle-orm/node-postgres');
+    const { Pool } = await import('pg');
+    
+    // Create a pg Pool with proper SSL configuration for Supabase
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false // Required for Supabase PostgreSQL
+      }
+    });
 
-  // This will automatically search for SQL files in the migrations folder and apply the ones not applied yet.
-  migrate(db, { migrationsFolder: migrationsFolder });
+    const db = drizzle(pool);
+    console.log("PostgreSQL connection established.");
 
-  console.log("Migrations applied successfully!");
-  sqlite.close(); // Close the database connection
-  process.exit(0); // Exit successfully
-} catch (error) {
-  console.error("Error running migrations:", error);
-  process.exit(1); // Exit with error
+    // Run migrations
+    console.log("Applying PostgreSQL migrations...");
+    await migrate(db, { migrationsFolder });
+    console.log("PostgreSQL migrations applied successfully!");
+    
+    await pool.end();
+    console.log("PostgreSQL connection closed.");
+    
+    process.exit(0); // Exit successfully
+  } catch (error) {
+    console.error("Error running migrations:", error);
+    process.exit(1); // Exit with error
+  }
 }
+
+// Execute the async function
+runMigrations();

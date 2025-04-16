@@ -12,7 +12,22 @@ import { initializeEnvFromConfig } from "../server/config.js";
 const app = express();
 
 // Security headers for production
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "*.supabase.co"],
+      connectSrc: ["'self'", "*.supabase.co"],
+      fontSrc: ["'self'", "data:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // May need to adjust based on your app's requirements
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

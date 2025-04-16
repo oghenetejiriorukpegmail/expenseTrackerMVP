@@ -40,6 +40,9 @@ export function setupAuth(app: Express, sessionStore: session.Store, storage: IS
       maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      sameSite: 'lax',
+      // Set domain in production if using a custom domain
+      // domain: process.env.NODE_ENV === "production" ? '.yourdomain.com' : undefined,
     }
   };
 

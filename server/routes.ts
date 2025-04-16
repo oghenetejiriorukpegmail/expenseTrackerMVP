@@ -13,20 +13,18 @@ import multer from "multer";
 import type { IStorage } from "./storage"; // Import the storage interface type
 import { updateOcrApiKey, setDefaultOcrMethod, loadConfig, saveConfig } from "./config"; // Import config functions
 import { hashPassword, comparePasswords } from "./auth"; // Import password helpers
+import { FileHandler, MulterRequest } from "./file-handler"; // Import FileHandler
+import { registerReceiptRoutes } from "./receipt-routes"; // Import receipt routes
 
-// Define request type with file from multer
-interface MulterRequest extends Request {
-  file?: any;
-  files?: any[]; // Add files array for upload.array()
-}
+// MulterRequest is now imported from file-handler.ts
 
 // Update function signature to accept storage instance
 export async function registerRoutes(app: Express, storage: IStorage): Promise<Server> {
   // Authentication is now setup in index.ts before calling this
   // setupAuth(app);
 
-  // Serve uploaded files
-  app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+  // Register receipt routes
+  registerReceiptRoutes(app, storage);
 
   // --- Profile Routes ---
 
@@ -376,11 +374,8 @@ export async function registerRoutes(app: Express, storage: IStorage): Promise<S
         expenseData.location = req.body.location;
       }
 
-      // Add the receipt path if a file was uploaded
-      let receiptPath = null;
-      if (req.file) {
-        receiptPath = req.file.filename;
-      }
+      // Upload file to Supabase Storage if provided
+      const receiptPath = await FileHandler.handleExpenseFileUpload(req);
 
       // Create the expense in the database
       const expense = await storage.createExpense({
@@ -450,15 +445,7 @@ export async function registerRoutes(app: Express, storage: IStorage): Promise<S
       }
 
       // Update receipt path if a new file was uploaded
-      let receiptPath = expense.receiptPath;
-      if (req.file) {
-        // Delete the old receipt if it exists
-        if (expense.receiptPath) {
-          const oldReceiptPath = path.join(process.cwd(), "uploads", expense.receiptPath);
-          await fsPromises.unlink(oldReceiptPath).catch(() => {});
-        }
-        receiptPath = req.file.filename;
-      }
+      const receiptPath = await FileHandler.handleExpenseFileUpload(req, expense.receiptPath);
 
       // Update the expense in the database
       const updatedExpense = await storage.updateExpense(expenseId, {
@@ -490,10 +477,11 @@ export async function registerRoutes(app: Express, storage: IStorage): Promise<S
         return res.status(403).send("Forbidden");
       }
 
-      // Delete the receipt file if it exists
+      // Delete the receipt file from Supabase Storage if it exists
       if (expense.receiptPath) {
-        const receiptPath = path.join(process.cwd(), "uploads", expense.receiptPath);
-        await fsPromises.unlink(receiptPath).catch(() => {});
+        await FileHandler.deleteFile(expense.receiptPath).catch(err => {
+          console.warn(`Failed to delete receipt: ${expense.receiptPath}`, err);
+        });
       }
 
       await storage.deleteExpense(expenseId);
@@ -513,7 +501,9 @@ export async function registerRoutes(app: Express, storage: IStorage): Promise<S
         return res.status(400).send("No receipt file uploaded");
       }
 
-      const filePath = path.join(process.cwd(), "uploads", req.file.filename);
+      // Upload file to temporary location for OCR processing
+      const localFilePath = req.file.path;
+      const filePath = localFilePath; // Use the local path for OCR processing
 
       // Get file extension and check if it's a PDF
       const fileExtension = path.extname(req.file.originalname).toLowerCase();
@@ -957,24 +947,33 @@ function guessExpensePurpose(text: string): string {
 
 
       // --- Add Receipts to ZIP ---
-      const uploadsDir = path.join(process.cwd(), "uploads");
       for (const expense of expenses) {
         if (expense.receiptPath) {
-          const receiptFilePath = path.join(uploadsDir, expense.receiptPath);
           try {
-            // Check if file exists before attempting to add
-            await fsPromises.stat(receiptFilePath);
+            // Get a signed URL for the receipt
+            const signedUrl = await FileHandler.getFileUrl(expense.receiptPath);
+            
+            // Create a temporary file with the receipt name
+            const receiptFilename = expense.receiptPath.split('/').pop() || `receipt_${expense.id}.pdf`;
+            const tempFilePath = path.join(process.cwd(), "temp", receiptFilename);
+            
+            // Ensure temp directory exists
+            await fsPromises.mkdir(path.join(process.cwd(), "temp"), { recursive: true });
+            
+            // Download the file using fetch
+            const response = await fetch(signedUrl);
+            const buffer = await response.arrayBuffer();
+            await fsPromises.writeFile(tempFilePath, Buffer.from(buffer));
+            
             // Add file to a 'receipts' directory within the zip
-            archive.file(receiptFilePath, { name: `receipts/${expense.receiptPath}` });
-            console.log(`Adding receipt: ${expense.receiptPath}`);
+            archive.file(tempFilePath, { name: `receipts/${receiptFilename}` });
+            console.log(`Adding receipt: ${receiptFilename}`);
+            
+            // Clean up the temporary file
+            await fsPromises.unlink(tempFilePath).catch(() => {});
           } catch (fileError: any) {
-            // Log if a receipt file is missing but continue archiving others
-            if (fileError.code === 'ENOENT') {
-              console.warn(`Receipt file not found, skipping: ${receiptFilePath}`);
-            } else {
-              console.error(`Error accessing receipt file ${receiptFilePath}:`, fileError);
-              // Decide if you want to stop the whole process or just skip this file
-            }
+            console.error(`Error accessing receipt file ${expense.receiptPath}:`, fileError);
+            // Continue with other receipts
           }
         }
       }

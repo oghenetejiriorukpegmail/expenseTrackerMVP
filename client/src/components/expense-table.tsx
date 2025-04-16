@@ -135,11 +135,11 @@ export default function ExpenseTable({ expenses, onEdit, onDelete }: ExpenseTabl
                 </TableCell>
                 <TableCell className="text-center">
                   {expense.receiptPath ? (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-blue-500 hover:text-blue-700" 
-                      onClick={() => openReceiptViewer(`/uploads/${expense.receiptPath}`)}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-blue-500 hover:text-blue-700"
+                      onClick={() => openReceiptViewer(`${expense.id}`)}
                     >
                       <EyeIcon className="h-4 w-4" />
                     </Button>

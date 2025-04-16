@@ -47,15 +47,9 @@ export async function setupVite(app: Express, server: Server) {
     const url = req.originalUrl;
 
     try {
-      // Determine correct client template path based on environment
-      let clientTemplate;
-      if (process.env.VERCEL === '1') {
-        clientTemplate = path.resolve(process.cwd(), "client", "root", "index.html");
-        log(`Vercel: Using template path: ${clientTemplate}`, "vite");
-      } else {
-        clientTemplate = path.resolve(__dirname, "..", "client", "index.html");
-        log(`Dev: Using template path: ${clientTemplate}`, "vite");
-      }
+      // Use a consistent path for the client template
+      const clientTemplate = path.resolve(__dirname, "..", "client", "index.html");
+      log(`Using template path: ${clientTemplate}`, "vite");
 
       // Check if template file exists and log file stats
       try {

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Trash2, Image as ImageIcon, FileText } from "lucide-react";
@@ -6,13 +6,15 @@ import { Loader2, Upload, Trash2, Image as ImageIcon, FileText } from "lucide-re
 interface ReceiptUploadProps {
   onFileSelect: (file: File | null) => void;
   selectedFile: File | null;
+  currentReceiptUrl?: string | null;
 }
 
-export default function ReceiptUpload({ onFileSelect, selectedFile }: ReceiptUploadProps) {
+export default function ReceiptUpload({ onFileSelect, selectedFile, currentReceiptUrl }: ReceiptUploadProps) {
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [existingReceiptLoading, setExistingReceiptLoading] = useState(!!currentReceiptUrl);
   
   const validateFile = (file: File): boolean => {
     // Check file type
@@ -96,6 +98,22 @@ export default function ReceiptUpload({ onFileSelect, selectedFile }: ReceiptUpl
     onFileSelect(null);
   }, [onFileSelect]);
   
+  // Handle existing receipt display
+  useEffect(() => {
+    if (currentReceiptUrl) {
+      setExistingReceiptLoading(true);
+      // For image URLs, we can set them directly as preview
+      if (currentReceiptUrl.match(/\.(jpeg|jpg|gif|png)$/i)) {
+        setPreviewUrl(currentReceiptUrl);
+        setExistingReceiptLoading(false);
+      } else {
+        // For PDFs, we don't set a preview URL
+        setPreviewUrl(null);
+        setExistingReceiptLoading(false);
+      }
+    }
+  }, [currentReceiptUrl]);
+
   return (
     <div className="mt-1">
       {selectedFile ? (
@@ -126,6 +144,43 @@ export default function ReceiptUpload({ onFileSelect, selectedFile }: ReceiptUpl
                 src={previewUrl} 
                 alt="Receipt preview" 
                 className="max-h-full max-w-full object-contain" 
+              />
+            </div>
+          ) : (
+            <div className="h-40 flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 rounded">
+              <FileText className="h-12 w-12 text-gray-400 mb-2" />
+              <span className="text-sm text-gray-500 dark:text-gray-400">PDF document</span>
+            </div>
+          )}
+        </div>
+      ) : currentReceiptUrl ? (
+        <div className="border-2 border-gray-300 dark:border-gray-600 rounded-md p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center">
+              {currentReceiptUrl.match(/\.(jpeg|jpg|gif|png)$/i) ? (
+                <ImageIcon className="h-5 w-5 text-gray-500 dark:text-gray-400 mr-2" />
+              ) : (
+                <FileText className="h-5 w-5 text-gray-500 dark:text-gray-400 mr-2" />
+              )}
+              <div className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                Current Receipt
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" onClick={handleRemoveFile}>
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </Button>
+          </div>
+          
+          {existingReceiptLoading ? (
+            <div className="h-40 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : previewUrl ? (
+            <div className="h-40 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded overflow-hidden">
+              <img
+                src={previewUrl}
+                alt="Receipt preview"
+                className="max-h-full max-w-full object-contain"
               />
             </div>
           ) : (
