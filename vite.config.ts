@@ -9,6 +9,9 @@ const __dirname = dirname(__filename);
 export default defineConfig({
   plugins: [
     react(),
+    // @replit/vite-plugin-shadcn-theme-json(), // Commented out for debugging
+    // @replit/vite-plugin-cartographer(), // Commented out for debugging
+    // @replit/vite-plugin-runtime-error-modal(), // Commented out for debugging
   ],
   resolve: {
     alias: {
@@ -17,10 +20,8 @@ export default defineConfig({
       "@assets": path.resolve(__dirname, "attached_assets"),
     },
   },
-  // Use minimal-test directory as a workaround for the EISDIR error
-  root: path.resolve(__dirname, "minimal-test"),
+  root: path.resolve(__dirname, "client"),
   publicDir: path.resolve(__dirname, "client", "public"),
-  appType: "spa",
   build: {
     outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,
@@ -32,6 +33,7 @@ export default defineConfig({
       },
     },
     rollupOptions: {
+      input: path.resolve(__dirname, 'client', 'src', 'main.tsx'),
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'wouter'],
